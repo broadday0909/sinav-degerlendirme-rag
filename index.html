@@ -1,0 +1,675 @@
+﻿<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>AÃ§Ä±k UÃ§lu SÄ±nav DeÄŸerlendirme Sistemi (Vision + RAG)</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Hafif Ãœst Durum ve AraÃ§ Ã‡ubuÄŸu -->
+    <nav class="app-topbar" aria-label="Uygulama Ãœst Ã‡ubuÄŸu">
+      <div class="brand-group">
+        <span class="brand-logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+            <line x1="9" y1="11" x2="13" y2="11"></line>
+          </svg>
+        </span>
+        <span class="brand-name">TÃœBÄ°TAK 1001 â€¢ Akademik SÄ±nav DeÄŸerlendirici</span>
+        <span class="perf-pill" title="DÃ¼ÅŸÃ¼k bellek ve sÄ±fÄ±r harici kÃ¼tÃ¼phane ile her bilgisayarda akÄ±cÄ± Ã§alÄ±ÅŸÄ±r">Hafif GUI</span>
+      </div>
+
+      <div class="topbar-actions">
+        <span id="readiness-indicator" class="readiness-pill" aria-live="polite">
+          Bekleniyor: Ders KaynaÄŸÄ± + Ã–n YÃ¼z
+        </span>
+        <button type="button" id="theme-toggle-btn" class="topbar-btn" title="AÃ§Ä±k / Koyu Tema DeÄŸiÅŸtir">
+          <svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+          </svg>
+          <span id="theme-toggle-label">Koyu Tema</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="app-container">
+      <header class="app-header">
+        <div class="badge-row">
+          <span class="system-badge">Vision + RAG</span>
+          <span class="system-badge subtle">Sadece Ders KaynaklarÄ±na BaÄŸlÄ± DeÄŸerlendirme</span>
+          <span class="system-badge subtle">Toplu Okuma â€¢ GÃ¶rÃ¼ntÃ¼ Ä°yileÅŸtirme â€¢ Analiz</span>
+        </div>
+        <h1>AÃ§Ä±k UÃ§lu SÄ±nav DeÄŸerlendirme Sistemi</h1>
+        <p class="subtitle">
+          Ders kaynaklarÄ±nÄ±zÄ± ve sÄ±nav kaÄŸÄ±dÄ± fotoÄŸraflarÄ±nÄ± yÃ¼kleyin. Tekli veya toplu sÄ±nav kaÄŸÄ±tlarÄ±nÄ± gÃ¶rÃ¼ntÃ¼ iyileÅŸtirme ile okuyun, geÃ§miÅŸ kayÄ±tlarÄ± yÃ¶netin ve soru bazlÄ± analiz grafikleri oluÅŸturun.
+        </p>
+
+        <!-- Mod ve GÃ¶rÃ¼nÃ¼m Sekmeleri (SÄ±fÄ±r ekstra <input>) -->
+        <div class="mode-tabs" role="tablist" aria-label="Ã‡alÄ±ÅŸma ModlarÄ±">
+          <button type="button" id="tab-single-btn" class="mode-tab-btn is-active" role="tab" aria-selected="true" data-mode="single">
+            Tekli KaÄŸÄ±t DeÄŸerlendirme
+          </button>
+          <button type="button" id="tab-batch-btn" class="mode-tab-btn" role="tab" aria-selected="false" data-mode="batch">
+            Toplu Okuma (Batch Modu)
+          </button>
+          <button type="button" id="tab-history-btn" class="mode-tab-btn" role="tab" aria-selected="false" data-mode="history">
+            DeÄŸerlendirme GeÃ§miÅŸi
+          </button>
+          <button type="button" id="tab-analytics-btn" class="mode-tab-btn" role="tab" aria-selected="false" data-mode="analytics">
+            Soru BazlÄ± Analiz &amp; Grafikler
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <form id="evaluation-form" class="upload-form" novalidate>
+          <div class="upload-grid">
+            <!-- 1. Girdi AlanÄ±: Ders KaynaklarÄ± YÃ¼kleme AlanÄ± -->
+            <div class="upload-card" id="course-materials-card">
+              <div class="card-header">
+                <span class="step-number">1</span>
+                <div class="card-header-text">
+                  <label for="course-materials-input" class="card-title">Ders KaynaklarÄ± YÃ¼kleme AlanÄ±</label>
+                  <div class="tag-row">
+                    <span class="required-tag">Zorunlu</span>
+                    <span class="status-tag" id="course-status-badge">SeÃ§ilmedi</span>
+                  </div>
+                </div>
+              </div>
+              <p class="card-desc">
+                SÄ±navÄ±n hangi kaynaklar Ã¼zerinden deÄŸerlendirileceÄŸini yÃ¼kleyiniz (<strong>PDF, DOCX, TXT</strong>).
+              </p>
+              <label for="course-materials-input" class="dropzone" id="course-dropzone" tabindex="0" role="button">
+                <input
+                  id="course-materials-input"
+                  name="courseMaterials"
+                  type="file"
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  multiple
+                  required
+                />
+                <span class="dropzone-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                  </svg>
+                </span>
+                <span class="dropzone-title">PDF, DOCX veya TXT dosyalarÄ±nÄ± seÃ§in veya sÃ¼rÃ¼kleyin</span>
+                <span class="dropzone-hint">Birden fazla ders kaynaÄŸÄ± yÃ¼kleyebilirsiniz</span>
+              </label>
+              <div class="file-list-header" id="course-files-summary" hidden>
+                <span id="course-files-count">0 dosya</span>
+                <button type="button" class="text-action-btn" id="clear-course-btn">TÃ¼mÃ¼nÃ¼ KaldÄ±r</button>
+              </div>
+              <ul class="file-list" id="course-file-list" aria-live="polite"></ul>
+            </div>
+
+            <!-- 2. Girdi AlanÄ±: SÄ±nav KaÄŸÄ±dÄ± YÃ¼kleme ve Ayarlar (BirleÅŸik Ã–n/Arka YÃ¼z & Toplu Ayarlar) -->
+            <div class="upload-card" id="front-image-card">
+              <div class="card-header">
+                <span class="step-number">2</span>
+                <div class="card-header-text">
+                  <label for="front-image-input" class="card-title" id="front-card-title">SÄ±nav KaÄŸÄ±dÄ± YÃ¼kleme ve Ayarlar</label>
+                  <div class="tag-row">
+                    <span class="required-tag">Zorunlu</span>
+                    <span class="status-tag" id="front-status-badge">SeÃ§ilmedi</span>
+                  </div>
+                </div>
+              </div>
+              <p class="card-desc" id="front-card-desc">
+                Ã–ÄŸrencinin sÄ±nav kaÄŸÄ±dÄ±nÄ±n <strong>Ã¶n yÃ¼zÃ¼nÃ¼</strong> (zorunlu) ve varsa <strong>arka yÃ¼zÃ¼nÃ¼</strong> (opsiyonel) yÃ¼kleyiniz.
+              </p>
+
+              <div class="exam-sides-grid" id="exam-sides-grid">
+                <div class="exam-side-slot" id="single-front-container">
+                  <div class="sub-card-header" id="front-sub-header">
+                    <span class="card-title sub-title">Ã–n YÃ¼z</span>
+                    <span class="required-tag">Zorunlu</span>
+                  </div>
+                  <label for="front-image-input" class="dropzone" id="front-dropzone" tabindex="0" role="button">
+                    <input
+                      id="front-image-input"
+                      name="frontImage"
+                      type="file"
+                      accept="image/*,.png,.jpg,.jpeg,.webp"
+                      required
+                    />
+                    <span class="dropzone-icon" aria-hidden="true">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                    </span>
+                    <span class="dropzone-title" id="front-dropzone-title">Ã–n yÃ¼z fotoÄŸrafÄ±nÄ± seÃ§in veya sÃ¼rÃ¼kleyin</span>
+                    <span class="dropzone-hint" id="front-dropzone-hint">PNG, JPG, JPEG, WEBP</span>
+                  </label>
+
+                  <!-- Tekli Mod Ã–nizleme ve GÃ¶rÃ¼ntÃ¼ Ä°yileÅŸtirme StÃ¼dyosu -->
+                  <div class="image-preview-box" id="front-preview-box" hidden>
+                    <img id="front-preview-img" alt="SÄ±nav KaÄŸÄ±dÄ± Ã–n YÃ¼z Ã–nizleme" decoding="async" />
+                    <div class="preview-meta">
+                      <span id="front-file-name" class="preview-filename"></span>
+                      <div class="preview-btn-group">
+                        <button type="button" class="mini-btn" id="front-enhance-toggle-btn">Ä°yileÅŸtir / KÄ±rp</button>
+                        <button type="button" class="remove-btn" id="clear-front-btn">KaldÄ±r</button>
+                      </div>
+                    </div>
+                    <div class="enhance-studio" id="front-enhance-panel" hidden>
+                      <div class="enhance-row">
+                        <span class="enhance-label">DÃ¶ndÃ¼r:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="mini-btn" data-side="front" data-action="rot-left">â†º -90Â°</button>
+                          <button type="button" class="mini-btn" data-side="front" data-action="rot-right">â†» +90Â°</button>
+                          <button type="button" class="mini-btn" data-side="front" data-action="rot-180">180Â°</button>
+                          <button type="button" class="mini-btn" data-side="front" data-action="rot-m5">-5Â°</button>
+                          <button type="button" class="mini-btn" data-side="front" data-action="rot-p5">+5Â°</button>
+                          <span class="enhance-val-pill" id="front-angle-val">0Â°</span>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">ParlaklÄ±k:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="mini-btn" data-side="front" data-action="bright-down">-</button>
+                          <span class="enhance-val-pill" id="front-brightness-val">1.0</span>
+                          <button type="button" class="mini-btn" data-side="front" data-action="bright-up">+</button>
+                          <span class="enhance-label inline-gap">Kontrast:</span>
+                          <button type="button" class="mini-btn" data-side="front" data-action="contrast-down">-</button>
+                          <span class="enhance-val-pill" id="front-contrast-val">1.0</span>
+                          <button type="button" class="mini-btn" data-side="front" data-action="contrast-up">+</button>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">Filtreler:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="toggle-chip" id="front-deskew-btn" aria-pressed="false">Otomatik EÄŸim</button>
+                          <button type="button" class="toggle-chip" id="front-clahe-btn" aria-pressed="false">CLAHE</button>
+                          <button type="button" class="toggle-chip" id="front-normalize-btn" aria-pressed="false">Normalize</button>
+                          <button type="button" class="toggle-chip" id="front-binarize-btn" aria-pressed="false">Siyah-Beyaz</button>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">KÄ±rpma:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="toggle-chip is-selected" data-side="front" data-crop="none">Tam</button>
+                          <button type="button" class="toggle-chip" data-side="front" data-crop="margin5">%5 Kenar</button>
+                          <button type="button" class="toggle-chip" data-side="front" data-crop="margin10">%10 Kenar</button>
+                          <button type="button" class="toggle-chip" data-side="front" data-crop="top50">Ãœst YarÄ±</button>
+                          <button type="button" class="toggle-chip" data-side="front" data-crop="bottom50">Alt YarÄ±</button>
+                          <span class="enhance-val-pill" id="front-crop-val">Tam</span>
+                        </div>
+                      </div>
+                      <div class="enhance-actions">
+                        <button type="button" class="utility-btn sm-btn" id="front-preview-enhance-btn">Ã–nizlemeyi GÃ¼ncelle</button>
+                        <button type="button" class="secondary-btn sm-btn" id="front-reset-enhance-btn">SÄ±fÄ±rla</button>
+                        <span class="enhance-status-text" id="front-enhance-status"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tekli Mod: SÄ±nav KaÄŸÄ±dÄ± - Arka YÃ¼z (Entegre Yan BÃ¶lÃ¼m) -->
+                <div id="single-back-container" class="single-back-container exam-side-slot">
+                  <div class="sub-card-header">
+                    <label for="back-image-input" class="card-title sub-title" id="back-card-title">Arka YÃ¼z</label>
+                    <div class="tag-row">
+                      <span class="status-tag" id="back-status-badge">BoÅŸ BÄ±rakÄ±labilir</span>
+                    </div>
+                  </div>
+                  <label for="back-image-input" class="dropzone" id="back-dropzone" tabindex="0" role="button">
+                    <input
+                      id="back-image-input"
+                      name="backImage"
+                      type="file"
+                      accept="image/*,.png,.jpg,.jpeg,.webp"
+                    />
+                    <span class="dropzone-icon" aria-hidden="true">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                        <line x1="9" y1="7" x2="15" y2="7"></line>
+                        <line x1="9" y1="11" x2="15" y2="11"></line>
+                        <line x1="9" y1="15" x2="13" y2="15"></line>
+                      </svg>
+                    </span>
+                    <span class="dropzone-title">Arka yÃ¼z fotoÄŸrafÄ±nÄ± seÃ§in veya sÃ¼rÃ¼kleyin</span>
+                    <span class="dropzone-hint">Opsiyonel â€” BoÅŸ bÄ±rakÄ±labilir</span>
+                  </label>
+                  <div class="image-preview-box" id="back-preview-box" hidden>
+                    <img id="back-preview-img" alt="SÄ±nav KaÄŸÄ±dÄ± Arka YÃ¼z Ã–nizleme" decoding="async" />
+                    <div class="preview-meta">
+                      <span id="back-file-name" class="preview-filename"></span>
+                      <div class="preview-btn-group">
+                        <button type="button" class="mini-btn" id="back-enhance-toggle-btn">Ä°yileÅŸtir / KÄ±rp</button>
+                        <button type="button" class="remove-btn" id="clear-back-btn">KaldÄ±r</button>
+                      </div>
+                    </div>
+                    <div class="enhance-studio" id="back-enhance-panel" hidden>
+                      <div class="enhance-row">
+                        <span class="enhance-label">DÃ¶ndÃ¼r:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="mini-btn" data-side="back" data-action="rot-left">â†º -90Â°</button>
+                          <button type="button" class="mini-btn" data-side="back" data-action="rot-right">â†» +90Â°</button>
+                          <button type="button" class="mini-btn" data-side="back" data-action="rot-180">180Â°</button>
+                          <button type="button" class="mini-btn" data-side="back" data-action="rot-m5">-5Â°</button>
+                          <button type="button" class="mini-btn" data-side="back" data-action="rot-p5">+5Â°</button>
+                          <span class="enhance-val-pill" id="back-angle-val">0Â°</span>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">ParlaklÄ±k:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="mini-btn" data-side="back" data-action="bright-down">-</button>
+                          <span class="enhance-val-pill" id="back-brightness-val">1.0</span>
+                          <button type="button" class="mini-btn" data-side="back" data-action="bright-up">+</button>
+                          <span class="enhance-label inline-gap">Kontrast:</span>
+                          <button type="button" class="mini-btn" data-side="back" data-action="contrast-down">-</button>
+                          <span class="enhance-val-pill" id="back-contrast-val">1.0</span>
+                          <button type="button" class="mini-btn" data-side="back" data-action="contrast-up">+</button>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">Filtreler:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="toggle-chip" id="back-deskew-btn" aria-pressed="false">Otomatik EÄŸim</button>
+                          <button type="button" class="toggle-chip" id="back-clahe-btn" aria-pressed="false">CLAHE</button>
+                          <button type="button" class="toggle-chip" id="back-normalize-btn" aria-pressed="false">Normalize</button>
+                          <button type="button" class="toggle-chip" id="back-binarize-btn" aria-pressed="false">Siyah-Beyaz</button>
+                        </div>
+                      </div>
+                      <div class="enhance-row">
+                        <span class="enhance-label">KÄ±rpma:</span>
+                        <div class="enhance-btn-group">
+                          <button type="button" class="toggle-chip is-selected" data-side="back" data-crop="none">Tam</button>
+                          <button type="button" class="toggle-chip" data-side="back" data-crop="margin5">%5 Kenar</button>
+                          <button type="button" class="toggle-chip" data-side="back" data-crop="margin10">%10 Kenar</button>
+                          <button type="button" class="toggle-chip" data-side="back" data-crop="top50">Ãœst YarÄ±</button>
+                          <button type="button" class="toggle-chip" data-side="back" data-crop="bottom50">Alt YarÄ±</button>
+                          <span class="enhance-val-pill" id="back-crop-val">Tam</span>
+                        </div>
+                      </div>
+                      <div class="enhance-actions">
+                        <button type="button" class="utility-btn sm-btn" id="back-preview-enhance-btn">Ã–nizlemeyi GÃ¼ncelle</button>
+                        <button type="button" class="secondary-btn sm-btn" id="back-reset-enhance-btn">SÄ±fÄ±rla</button>
+                        <span class="enhance-status-text" id="back-enhance-status"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Toplu Mod Dosya Listesi -->
+              <div class="batch-files-panel" id="batch-files-panel" hidden>
+                <div class="file-list-header" id="batch-files-summary">
+                  <span id="batch-files-count">0 kaÄŸÄ±t</span>
+                  <button type="button" class="text-action-btn" id="clear-batch-files-btn">TÃ¼mÃ¼nÃ¼ KaldÄ±r</button>
+                </div>
+                <ul class="file-list" id="batch-file-list" aria-live="polite"></ul>
+              </div>
+
+              <!-- Toplu Mod AyarlarÄ± (Batch Settings - sÄ±fÄ±r <input>) -->
+              <div id="batch-options-container" class="batch-options-container" hidden>
+                <div class="batch-option-block">
+                  <span class="batch-opt-label">Otomatik GÃ¶rÃ¼ntÃ¼ Ä°yileÅŸtirme:</span>
+                  <button type="button" id="batch-auto-enhance-btn" class="toggle-chip is-selected" role="switch" aria-checked="true">
+                    Aktif (EÄŸim + Normalize)
+                  </button>
+                </div>
+                <p class="card-desc small">
+                  Ã–ÄŸrenci No/Ad-Soyad OCR veya dosya adÄ±ndan otomatik ayrÄ±ÅŸtÄ±rÄ±lÄ±r; sonuÃ§lar <strong>DeÄŸerlendirme GeÃ§miÅŸi</strong>ne kaydedilir.
+                </p>
+              </div>
+            </div>
+
+            <!-- 3. Girdi AlanÄ± Stub: ArayÃ¼zden tamamen gizlenmiÅŸ ve sÄ±fÄ±r yer kaplar -->
+            <div class="upload-card is-hidden" id="back-image-card" hidden style="display: none !important;"></div>
+          </div>
+
+          <div class="action-bar">
+            <div class="eval-mode-switch" role="group" aria-label="KaynaÄŸa BaÄŸlÄ± Kalma Modu">
+              <span class="eval-mode-label">KaynaÄŸa BaÄŸlÄ± Kalma:</span>
+              <span class="eval-mode-option">
+                <button
+                  type="button"
+                  id="eval-mode-strict-btn"
+                  class="toggle-chip is-selected"
+                  data-eval-mode="strict"
+                  aria-pressed="true"
+                >
+                  KatÄ±
+                </button>
+                <button
+                  type="button"
+                  id="eval-mode-strict-help"
+                  class="help-tip-btn"
+                  aria-label="KatÄ± mod hakkÄ±nda bilgi"
+                  aria-describedby="eval-mode-strict-tip"
+                  data-tooltip="KatÄ±: YalnÄ±zca yÃ¼klediÄŸiniz ders kaynaklarÄ±nda geÃ§en bilgilere puan verir. Kaynakta bulunmayan konulara ve dÄ±ÅŸ bilgilere 0 puan verir."
+                >
+                  ?
+                  <span id="eval-mode-strict-tip" class="help-tip-popover" role="tooltip">
+                    <strong>KatÄ±:</strong> YalnÄ±zca yÃ¼klediÄŸiniz ders kaynaklarÄ±nda geÃ§en bilgilere puan verir. Kaynakta bulunmayan konulara ve kaynak dÄ±ÅŸÄ± bilgilere 0 puan verir.
+                  </span>
+                </button>
+              </span>
+              <span class="eval-mode-option">
+                <button
+                  type="button"
+                  id="eval-mode-hybrid-btn"
+                  class="toggle-chip"
+                  data-eval-mode="hybrid"
+                  aria-pressed="false"
+                >
+                  Hibrit (Kaynak + Genel Bilgi)
+                </button>
+                <button
+                  type="button"
+                  id="eval-mode-hybrid-help"
+                  class="help-tip-btn"
+                  aria-label="Hibrit Mod hakkÄ±nda bilgi"
+                  aria-describedby="eval-mode-hybrid-tip"
+                  data-tooltip="Hibrit Mod: Ã–ncelikle ders kaynaklarÄ±nÄ± esas alÄ±r. Konu kaynakta yoksa veya farklÄ± kelimelerle ifade edildiyse otomatik 0 yerine Ä°nceleme Gerekli iÅŸaretli geÃ§ici Ã¶neri puanÄ± Ã¼retir."
+                >
+                  ?
+                  <span id="eval-mode-hybrid-tip" class="help-tip-popover" role="tooltip">
+                    <strong>Hibrit Mod:</strong> Ã–ncelikle ders kaynaklarÄ±nÄ± esas alÄ±r. Konu kaynakta yoksa veya farklÄ± ifadeyle yazÄ±lmÄ±ÅŸsa otomatik 0 yerine <em>Ä°nceleme Gerekli</em> iÅŸaretli geÃ§ici Ã¶neri puanÄ± Ã¼retir.
+                  </span>
+                </button>
+              </span>
+            </div>
+            <div class="action-btn-group">
+              <button type="submit" id="evaluate-btn" class="primary-btn">
+                <svg class="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span id="evaluate-btn-label">SÄ±nav KaÄŸÄ±dÄ±nÄ± DeÄŸerlendir (Vision + RAG)</span>
+              </button>
+              <button type="button" id="reset-btn" class="secondary-btn">
+                Temizle
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div id="error-banner" class="error-banner" role="alert" hidden></div>
+
+        <section id="loading-section" class="loading-section" aria-live="polite" hidden>
+          <div class="loading-row">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="loading-text-group">
+              <p class="loading-title" id="loading-title">SÄ±nav kaÄŸÄ±dÄ± taranÄ±yor ve ders kaynaklarÄ±na (RAG) gÃ¶re deÄŸerlendiriliyor...</p>
+              <p class="loading-subtitle" id="loading-subtitle">
+                BasÄ±lÄ± sorular, puan deÄŸerleri ve el yazÄ±sÄ± cevaplar tespit ediliyor.
+                <span id="loading-elapsed" class="loading-elapsed"></span>
+              </p>
+            </div>
+            <button type="button" id="cancel-evaluate-btn" class="secondary-btn sm-btn">Ä°ptal Et</button>
+          </div>
+        </section>
+
+        <!-- Tekli DeÄŸerlendirme SonuÃ§ BÃ¶lÃ¼mÃ¼ -->
+        <section id="results-section" class="results-section" aria-live="polite" hidden>
+          <div class="results-toolbar">
+            <div class="results-title-block">
+              <h2>Soru BazlÄ± ve Toplam Puan Tablosu</h2>
+              <p id="evaluation-summary" class="results-summary"></p>
+            </div>
+            <div class="results-actions">
+              <button type="button" id="save-single-history-btn" class="utility-btn" title="Bu deÄŸerlendirmeyi geÃ§miÅŸ veritabanÄ±na kaydet">
+                GeÃ§miÅŸe Kaydet
+              </button>
+              <button type="button" id="copy-table-btn" class="utility-btn" title="Tabloyu panoya kopyala (Excel uyumlu)">
+                Tabloyu Kopyala
+              </button>
+              <button type="button" id="export-csv-btn" class="utility-btn" title="SonuÃ§larÄ± CSV (Excel) olarak indir">
+                CSV Ä°ndir
+              </button>
+              <button type="button" id="print-results-btn" class="utility-btn" title="DeÄŸerlendirme raporunu yazdÄ±r veya PDF kaydet">
+                YazdÄ±r / PDF
+              </button>
+            </div>
+          </div>
+
+          <div class="results-header">
+            <div class="kpi-grid">
+              <div class="total-score-card">
+                <span class="total-score-label">TOPLAM PUAN</span>
+                <div class="total-score-value">
+                  <span id="total-awarded-points">0</span>
+                  <span class="score-divider">/</span>
+                  <span id="total-max-points">100</span>
+                </div>
+              </div>
+
+              <div class="kpi-card">
+                <span class="kpi-label">BAÅARI ORANI</span>
+                <div class="kpi-value" id="score-percentage">%0</div>
+                <div class="progress-track" aria-hidden="true">
+                  <div class="progress-fill" id="score-progress-fill"></div>
+                </div>
+              </div>
+
+              <div class="kpi-card">
+                <span class="kpi-label">DEÄERLENDÄ°RÄ°LEN SORU</span>
+                <div class="kpi-value" id="evaluated-question-count">0 Soru</div>
+                <span class="kpi-sub" id="evaluated-pages-label">â€”</span>
+              </div>
+
+              <div class="kpi-card">
+                <span class="kpi-label">Ä°ÅLEM SÃœRESÄ°</span>
+                <div class="kpi-value" id="evaluation-duration">â€”</div>
+                <span class="kpi-sub">Yerel / RAG Motoru</span>
+              </div>
+            </div>
+
+            <div id="sources-badges" class="sources-badges"></div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="score-table" id="score-table">
+              <thead>
+                <tr>
+                  <th>Soru</th>
+                  <th>Tespit Edilen BasÄ±lÄ± Soru</th>
+                  <th>Ã–ÄŸrencinin CevabÄ±</th>
+                  <th>Ders KaynaÄŸÄ± ReferansÄ± ve DeÄŸerlendirme GerekÃ§esi (RAG)</th>
+                  <th class="num-col">Soru PuanÄ±</th>
+                  <th class="num-col">AlÄ±nan Puan</th>
+                </tr>
+              </thead>
+              <tbody id="score-table-body"></tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td colspan="4" class="total-row-label">GENEL TOPLAM</td>
+                  <td class="num-col" id="table-foot-max">0 Puan</td>
+                  <td class="num-col total-highlight" id="table-foot-awarded">0 / 0</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <!-- Toplu DeÄŸerlendirme SonuÃ§ BÃ¶lÃ¼mÃ¼ (SÄ±nÄ±f Not Listesi) -->
+        <section id="batch-results-section" class="results-section" aria-live="polite" hidden>
+          <div class="results-toolbar">
+            <div class="results-title-block">
+              <h2 id="batch-results-title">SÄ±nÄ±f Not Listesi</h2>
+              <p id="batch-results-summary" class="results-summary"></p>
+            </div>
+            <div class="results-actions">
+              <button type="button" id="batch-view-analytics-btn" class="primary-btn sm-btn">
+                Soru Analizi &amp; Grafikler
+              </button>
+              <button type="button" id="batch-export-csv-btn" class="utility-btn">
+                SÄ±nÄ±f Not Listesi CSV Ä°ndir
+              </button>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="total-score-card">
+              <span class="total-score-label">SINIF ORTALAMASI</span>
+              <div class="total-score-value" id="batch-class-avg">0</div>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Ã–ÄRENCÄ° SAYISI</span>
+              <div class="kpi-value" id="batch-student-count">0</div>
+              <span class="kpi-sub">DeÄŸerlendirilen KaÄŸÄ±t</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">EN YÃœKSEK PUAN</span>
+              <div class="kpi-value" id="batch-max-score">0</div>
+              <span class="kpi-sub">SÄ±nÄ±f Zirvesi</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">EN DÃœÅÃœK PUAN</span>
+              <div class="kpi-value" id="batch-min-score">0</div>
+              <span class="kpi-sub">Taban Puan</span>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="score-table" id="batch-grade-table">
+              <thead id="batch-grade-thead"></thead>
+              <tbody id="batch-grade-tbody"></tbody>
+            </table>
+          </div>
+
+          <div id="batch-student-detail" class="student-detail-drawer" hidden>
+            <div class="drawer-header">
+              <h3 id="batch-student-detail-title">Ã–ÄŸrenci DetayÄ±</h3>
+              <button type="button" id="close-student-detail-btn" class="mini-btn">Kapat</button>
+            </div>
+            <div id="batch-student-detail-body"></div>
+          </div>
+        </section>
+
+        <!-- DeÄŸerlendirme GeÃ§miÅŸi Paneli (SQLite) -->
+        <section id="history-section" class="results-section" aria-live="polite" hidden>
+          <div class="results-toolbar">
+            <div class="results-title-block">
+              <h2>DeÄŸerlendirme GeÃ§miÅŸi</h2>
+              <p class="results-summary">KaydedilmiÅŸ geÃ§miÅŸ sÄ±nav deÄŸerlendirmelerini gÃ¶rÃ¼ntÃ¼leyin, CSV indirin veya soru bazlÄ± analiz grafiklerini aÃ§Ä±n.</p>
+            </div>
+            <div class="results-actions">
+              <button type="button" id="refresh-history-btn" class="utility-btn">Listeyi Yenile</button>
+            </div>
+          </div>
+
+          <div id="history-empty-state" class="empty-state" hidden>
+            HenÃ¼z kaydedilmiÅŸ sÄ±nav deÄŸerlendirmesi bulunmuyor. Toplu veya tekli deÄŸerlendirme yaptÄ±ktan sonra burada listelenecektir.
+          </div>
+
+          <div class="table-wrapper" id="history-table-wrapper">
+            <table class="score-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>SÄ±nav BaÅŸlÄ±ÄŸÄ±</th>
+                  <th>Tarih</th>
+                  <th class="num-col">Ã–ÄŸrenci</th>
+                  <th class="num-col">Ortalama</th>
+                  <th class="num-col">En YÃ¼ksek / DÃ¼ÅŸÃ¼k</th>
+                  <th>Ä°ÅŸlemler</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Soru BazlÄ± Analiz ve SVG Grafikler Paneli -->
+        <section id="analytics-section" class="results-section" aria-live="polite" hidden>
+          <div class="results-toolbar">
+            <div class="results-title-block">
+              <h2 id="analytics-title">Soru BazlÄ± Analiz ve BaÅŸarÄ± Grafikleri</h2>
+              <p id="analytics-summary-text" class="results-summary">Bir sÄ±nav seÃ§erek soru baÅŸarÄ± ortalamalarÄ±nÄ± ve sÄ±k yapÄ±lan eksik kavramlarÄ± inceleyin.</p>
+            </div>
+            <div class="results-actions">
+              <button type="button" id="download-success-svg-btn" class="utility-btn" hidden>BaÅŸarÄ± GrafiÄŸi SVG Ä°ndir</button>
+              <button type="button" id="download-concepts-svg-btn" class="utility-btn" hidden>Kavram GrafiÄŸi SVG Ä°ndir</button>
+            </div>
+          </div>
+
+          <div class="analytics-exam-picker">
+            <span class="picker-label">Analiz Edilecek SÄ±navÄ± SeÃ§in:</span>
+            <div id="analytics-exam-pills" class="exam-pills-row"></div>
+          </div>
+
+          <div id="analytics-content" hidden>
+            <div class="kpi-grid">
+              <div class="total-score-card">
+                <span class="total-score-label">SINIF BAÅARI YÃœZDESÄ°</span>
+                <div class="total-score-value" id="analytics-avg-pct">%0</div>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">SINIF ORTALAMASI</span>
+                <div class="kpi-value" id="analytics-avg-score">0 / 100</div>
+                <span class="kpi-sub" id="analytics-student-count">0 Ã–ÄŸrenci</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">EN YÃœKSEK / EN DÃœÅÃœK</span>
+                <div class="kpi-value" id="analytics-min-max">0 / 0</div>
+                <span class="kpi-sub">Puan AralÄ±ÄŸÄ±</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">SORU SAYISI</span>
+                <div class="kpi-value" id="analytics-question-count">0</div>
+                <span class="kpi-sub">Analiz Edilen</span>
+              </div>
+            </div>
+
+            <div class="analytics-charts-grid">
+              <div class="chart-card">
+                <div id="question-success-svg-container" class="svg-chart-container"></div>
+              </div>
+              <div class="chart-card">
+                <div id="missing-concepts-svg-container" class="svg-chart-container"></div>
+              </div>
+            </div>
+
+            <div class="analytics-details-grid">
+              <div class="detail-panel">
+                <h3>Not DaÄŸÄ±lÄ±mÄ±</h3>
+                <div id="grade-distribution-bars" class="dist-bars"></div>
+              </div>
+              <div class="detail-panel">
+                <h3>Soru BazlÄ± Ä°statistikler</h3>
+                <div class="table-wrapper">
+                  <table class="score-table" id="analytics-question-table">
+                    <thead>
+                      <tr>
+                        <th>Soru</th>
+                        <th class="num-col">Ortalama</th>
+                        <th class="num-col">Max Puan</th>
+                        <th class="num-col">BaÅŸarÄ±</th>
+                        <th class="num-col">Min / Max</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analytics-question-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
+
